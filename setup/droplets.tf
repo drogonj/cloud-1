@@ -53,6 +53,10 @@ resource "digitalocean_droplet" "web" {
     }
 
     provisioner "local-exec" {
+      command = "echo '[web]\n${self.ipv4_address}' > hosts.ini"
+    }
+
+    provisioner "local-exec" {
       command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '${self.ipv4_address},' --private-key=${path.module}/id_rsa playbook.yml"
     }
 }

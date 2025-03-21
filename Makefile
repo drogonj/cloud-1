@@ -23,4 +23,11 @@ destroy:
 	terraform destroy -auto-approve && \
 	rm -rf id_rsa.pub id_rsa .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
 
+ssh:
+	@echo "Attempting SSH connection..."
+	@if ! ssh $(shell grep -E '^DROPLET_USERNAME=[^[:space:]]+' .env | cut -d'=' -f2)@$(shell grep -A 1 '\[web\]' setup/hosts.ini | tail -n 1) -i setup/id_rsa; then \
+		echo "Failed to connect.\nPlease make sure the droplet is deployed or you're on the root of the project"; \
+		exit 1; \
+	fi
+
 .PHONY: deploy destroy ssh
