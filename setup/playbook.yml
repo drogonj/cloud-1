@@ -2,6 +2,7 @@
 - become: yes
   hosts: all
   name: base-config
+
   vars:
     droplet_root_password: "{{ lookup('ini', 'DROPLET_ROOT_PASSWD file=../.env') }}"
     droplet_username: "{{ lookup('ini', 'DROPLET_USERNAME file=../.env') }}"
@@ -27,4 +28,70 @@
         user: "{{ droplet_username }}"
         state: present
         key: "{{ lookup('ansible.builtin.file', './id_rsa.pub') }}"
-      
+    
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+        version: "6.1.0"
+
+    - name: Ensure Docker is enabled and started
+      ansible.builtin.service:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Add "{{ droplet_username }}"" to group docker
+      ansible.builtin.user:
+        name: "{{ droplet_username }}"
+        groups: docker
+        append: yes
+
+    - name: Copy srcs folder to VM /home/{{ droplet_username }}/cloud-1
+      ansible.builtin.copy:
+        src: ../srcs/
+        dest: /home/{{ droplet_username }}/cloud-1/
+        remote_src: no
+
+    - name: Change .env hostname
+      ansible.builtin.shell: |
+        sed -i "s/HOSTNAME=localhost/HOSTNAME=$(hostname -I | cut -d' ' -f1)/g" /home/drogonj/cloud-1/.env
+
+    - name: Deploy docker project
+      community.docker.docker_compose_v2:
+        project_src: /home/{{ droplet_username }}/cloud-1
+        files:
+          - docker-compose.yml
+        state: present
+        recreate: always
+        pull: missing
+        build: policy
+      register: compose_output

@@ -1,0 +1,50 @@
+services:
+  mariadb:
+    container_name: mariadb
+    build: ./mariadb
+    user: "mysql:mysql"
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mariadb/init-user.sh:/docker-entrypoint-initdb.d/init-user.sh
+    command:
+      - --require-secure-transport=OFF
+    networks:
+      - db_network
+
+  wordpress:
+    container_name: wordpress
+    build: ./wordpress
+    env_file:
+      - .env
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - wp_network
+      - db_network
+    restart: unless-stopped
+
+  nginx:
+    container_name: nginx
+    build: ./nginx
+    ports:
+      - "443:443"
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - wp_network
+    depends_on:
+      - wordpress
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  wp_data:
+
+networks:
+  db_network:
+    driver: bridge
+  wp_network:
+    driver: bridge

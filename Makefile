@@ -14,6 +14,7 @@ deploy:
 	rm -rf id_rsa.pub id_rsa && \
 	ssh-keygen -t rsa -b 4096 -f id_rsa -P "" && \
 	chmod 600 id_rsa && chmod 644 id_rsa.pub && \
+	ansible-galaxy collection install -r requirements.yml && \
 	terraform init -upgrade && \
 	terraform apply -auto-approve
 	@echo "Droplet's IP stored in ./setup/hosts.ini"
@@ -21,7 +22,7 @@ deploy:
 destroy:
 	cd $(SETUP_DIR) && \
 	terraform destroy -auto-approve && \
-	rm -rf id_rsa.pub id_rsa .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
+	rm -rf id_rsa.pub id_rsa hosts.ini .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
 
 ssh:
 	@echo "Attempting SSH connection..."
