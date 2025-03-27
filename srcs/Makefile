@@ -1,19 +1,30 @@
-all: up
+all: help
+
+help:
+	@echo "Usage:"
+	@echo "make up		-> start containers in detach mode"
+	@echo "make down	-> down containers"
+	@echo "make clean	-> 'make down' && clean images"
+	@echo "make fclean	-> 'make clean' && clean volumes"
+	@echo "make logs	-> display logs"
 
 up:
-	@echo "🚀 Lancement des conteneurs..."
-	@docker compose up --build
+	@echo "🚀 Launch..."
+	@docker compose up --build -d
 
 down:
-	@echo "🛑 Arrêt des conteneurs..."
+	@echo "🛑 Stopping containers..."
 	@docker compose down
 
 clean: down
-	@echo "🧹 Nettoyage des images Docker..."
+	@echo "🧹 Cleaning docker images..."
 	@docker image prune -af
 
 fclean: clean
-	@echo "🔥 Nettoyage complet..."
+	@echo "🔥 Cleaning volumes..."
 	@docker volume prune -af
 
-.PHONY: all up down clean fclean init-certs
+logs:
+	@docker compose logs -f
+
+.PHONY: all up down clean fclean logs

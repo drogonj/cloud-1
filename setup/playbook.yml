@@ -1,5 +1,5 @@
 
-- become: yes
+- become: yes # Exec with sudo
   hosts: all
   name: base-config
 
@@ -15,6 +15,7 @@
         password: "{{ droplet_root_password | ansible.builtin.password_hash('sha512') }}"
         shell: /bin/bash
 
+
     - name: Add user "{{ droplet_username }}"
       ansible.builtin.user:
         name: "{{ droplet_username }}"
@@ -23,12 +24,14 @@
         append: yes
         shell: /bin/bash
 
+
     - name: Add SSH key to "{{ droplet_username }}"
       ansible.posix.authorized_key:
         user: "{{ droplet_username }}"
         state: present
         key: "{{ lookup('ansible.builtin.file', './id_rsa.pub') }}"
     
+
     - name: Install required system packages
       apt:
         pkg:
@@ -42,15 +45,18 @@
         state: latest
         update_cache: true
 
+
     - name: Add Docker GPG apt Key
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
+
     - name: Add Docker Repository
       apt_repository:
         repo: deb https://download.docker.com/linux/ubuntu focal stable
         state: present
+
 
     - name: Update apt and install docker-ce
       apt:
@@ -58,10 +64,12 @@
         state: latest
         update_cache: true
 
+
     - name: Install Docker Module for Python
       pip:
         name: docker
         version: "6.1.0"
+
 
     - name: Ensure Docker is enabled and started
       ansible.builtin.service:
@@ -69,11 +77,13 @@
         enabled: yes
         state: started
 
+
     - name: Add "{{ droplet_username }}"" to group docker
       ansible.builtin.user:
         name: "{{ droplet_username }}"
         groups: docker
         append: yes
+
 
     - name: Copy srcs folder to VM /home/{{ droplet_username }}/cloud-1
       ansible.builtin.copy:
@@ -81,9 +91,11 @@
         dest: /home/{{ droplet_username }}/cloud-1/
         remote_src: no
 
+
     - name: Change .env hostname
       ansible.builtin.shell: |
         sed -i "s/HOSTNAME=localhost/HOSTNAME=$(hostname -I | cut -d' ' -f1)/g" /home/drogonj/cloud-1/.env
+
 
     - name: Deploy docker project
       community.docker.docker_compose_v2:

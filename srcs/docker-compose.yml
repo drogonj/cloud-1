@@ -17,27 +17,28 @@ services:
   wordpress:
     container_name: wordpress
     build: ./wordpress
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
       - wp_data:/var/www/html
     networks:
-      - wp_network
+      - ngx_network
       - db_network
-    restart: unless-stopped
 
   nginx:
     container_name: nginx
     build: ./nginx
+    restart: unless-stopped
     ports:
+      - "80:80"
       - "443:443"
     volumes:
       - wp_data:/var/www/html
     networks:
-      - wp_network
+      - ngx_network
     depends_on:
       - wordpress
-    restart: unless-stopped
 
 volumes:
   db_data:
@@ -46,5 +47,5 @@ volumes:
 networks:
   db_network:
     driver: bridge
-  wp_network:
+  ngx_network:
     driver: bridge
