@@ -14,6 +14,26 @@ services:
     networks:
       - db_network
 
+  phpmyadmin:
+    container_name: phpmyadmin
+    image: phpmyadmin:5.2-fpm
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php
+      - pma_data:/var/www/html
+    environment:
+      - PMA_HOST=mariadb
+      - PMA_USER=${MARIADB_USER}
+      - PMA_PASSWORD=${MARIADB_USER_PASSWORD}
+      - PMA_ABSOLUTE_URI=https://${HOSTNAME}/phpmyadmin/
+    depends_on:
+      - mariadb
+    networks:
+      - ngx_network
+      - db_network
+
   wordpress:
     container_name: wordpress
     build: ./wordpress
@@ -34,7 +54,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - wp_data:/var/www/html
+      - wp_data:/var/www/html/wordpress
+      - pma_data:/var/www/html/phpmyadmin
     networks:
       - ngx_network
     depends_on:
@@ -43,6 +64,7 @@ services:
 volumes:
   db_data:
   wp_data:
+  pma_data:
 
 networks:
   db_network:

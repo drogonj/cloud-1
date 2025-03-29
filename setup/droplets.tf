@@ -55,6 +55,18 @@ resource "digitalocean_ssh_key" "dg_pub_key" {
 
 # #
 #
+# Generate a random id
+# added our Firewall  VM's names
+#
+# #
+
+resource "random_id" "unique" {
+  byte_length = 8
+}
+
+
+# #
+#
 # Create our droplet.
 # "s-1vcpu-2gb" is our droplet's config (1vCPU and 2GB of ram)
 # 
@@ -66,7 +78,7 @@ resource "digitalocean_ssh_key" "dg_pub_key" {
 
 resource "digitalocean_droplet" "web" {
     image   = "ubuntu-20-04-x64"
-    name    = "cloud-1"
+    name    = "cloud-1-${random_id.unique.hex}"
     region  = "fra1"
     size    = "s-1vcpu-2gb"
 
@@ -114,7 +126,7 @@ resource "digitalocean_droplet" "web" {
 # #
 
 resource "digitalocean_firewall" "web" {
-  name = "22-80-443"
+  name = "cloud-1-firewall-${random_id.unique.hex}"
   droplet_ids = [digitalocean_droplet.web.id]
 
   inbound_rule {
@@ -140,7 +152,6 @@ resource "digitalocean_firewall" "web" {
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-
 }
 
 

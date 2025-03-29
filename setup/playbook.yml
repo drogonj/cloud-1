@@ -4,9 +4,9 @@
   name: base-config
 
   vars:
-    droplet_root_password: "{{ lookup('ini', 'DROPLET_ROOT_PASSWD file=../.env') }}"
+    droplet_root_password: "{{ lookup('ini', 'DROPLET_ROOT_PASSWORD file=../.env') }}"
     droplet_username: "{{ lookup('ini', 'DROPLET_USERNAME file=../.env') }}"
-    droplet_password: "{{ lookup('ini', 'DROPLET_USER_PASSWD file=../.env') }}"
+    droplet_password: "{{ lookup('ini', 'DROPLET_USER_PASSWORD file=../.env') }}"
 
   tasks:
     - name: Change root password
@@ -94,7 +94,7 @@
 
     - name: Change .env hostname
       ansible.builtin.shell: |
-        sed -i "s/HOSTNAME=localhost/HOSTNAME=$(hostname -I | cut -d' ' -f1)/g" /home/drogonj/cloud-1/.env
+        sed -i "s/HOSTNAME=localhost/HOSTNAME=$(hostname -I | cut -d' ' -f1)/g" /home/{{ droplet_username }}/cloud-1/.env
 
 
     - name: Deploy docker project
