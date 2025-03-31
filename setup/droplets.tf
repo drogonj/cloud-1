@@ -61,7 +61,7 @@ resource "digitalocean_ssh_key" "dg_pub_key" {
 # #
 
 resource "random_id" "unique" {
-  byte_length = 8
+  byte_length = 4
 }
 
 
@@ -77,8 +77,10 @@ resource "random_id" "unique" {
 # #
 
 resource "digitalocean_droplet" "web" {
+    count = 2
+    
     image   = "ubuntu-20-04-x64"
-    name    = "cloud-1-${random_id.unique.hex}"
+    name    = "cloud-1-${count.index}-${random_id.unique.hex}"
     region  = "fra1"
     size    = "s-1vcpu-2gb"
 
@@ -107,7 +109,7 @@ resource "digitalocean_droplet" "web" {
     }
 
     provisioner "local-exec" {
-      command = "echo '[web]\n${self.ipv4_address}' > hosts.ini"
+      command = "echo '${self.ipv4_address}' >> hosts.ini"
     }
 
     provisioner "local-exec" {
@@ -127,7 +129,7 @@ resource "digitalocean_droplet" "web" {
 
 resource "digitalocean_firewall" "web" {
   name = "cloud-1-firewall-${random_id.unique.hex}"
-  droplet_ids = [digitalocean_droplet.web.id]
+  droplet_ids = digitalocean_droplet.web[*].id
 
   inbound_rule {
     protocol         = "tcp"
@@ -162,5 +164,5 @@ resource "digitalocean_firewall" "web" {
 # #
 
 output "droplet_ip" {
-    value = digitalocean_droplet.web.ipv4_address
+    value = digitalocean_droplet.web[*].ipv4_address
 }
