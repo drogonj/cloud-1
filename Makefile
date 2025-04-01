@@ -10,6 +10,7 @@ help:
 	@echo "make deploy n=NUMBER -> choose how many droplet's are created"
 	@echo "- If a domain name is set, deploying more than 1 droplet will create subdomains like s1.domain.org, s2.domain.org, ..."
 	@echo "make destroy         -> DESTROY EVERYTHING"
+	@echo "make ssh             -> remote connection to the droplet with it's id (0 to NUMBER-1)"
 
 deploy:
 	@echo "This action will delete the actual Droplet(s) if created, including SSH keys and databases"
@@ -54,4 +55,4 @@ ssh:
 	fi
 
 
-.PHONY: deploy destroy ssh
+.PHONY: deploy destroy ssh help
