@@ -1,5 +1,5 @@
 
-- become: yes # Exec with sudo
+- become: true # Exec with sudo
   hosts: all
   name: base-config
 
@@ -9,6 +9,13 @@
     droplet_password: "{{ lookup('ini', 'DROPLET_USER_PASSWORD file=../.env') }}"
 
   tasks:
+      
+    - name: Wait for system to become available after update
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 3600
+
+
     - name: Change root password
       ansible.builtin.user:
         name: root
@@ -32,8 +39,17 @@
         key: "{{ lookup('ansible.builtin.file', './id_rsa.pub') }}"
     
 
-    - name: Install required system packages
+    - name: Install aptitude
       apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+      retries: 10
+      delay: 5
+
+
+    - name: Install required system packages
+      ansible.builtin.apt:
         pkg:
           - apt-transport-https
           - ca-certificates
@@ -42,31 +58,41 @@
           - python3-pip
           - virtualenv
           - python3-setuptools
+        lock_timeout: 360
         state: latest
         update_cache: true
+      retries: 10
+      delay: 5
 
 
     - name: Add Docker GPG apt Key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
+      retries: 5
+      delay: 5
 
 
     - name: Add Docker Repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: deb https://download.docker.com/linux/ubuntu focal stable
         state: present
+      retries: 5
+      delay: 5
 
 
     - name: Update apt and install docker-ce
-      apt:
+      ansible.builtin.apt:
         name: docker-ce
         state: latest
         update_cache: true
+        lock_timeout: 360
+      retries: 10
+      delay: 5
 
 
     - name: Install Docker Module for Python
-      pip:
+      ansible.builtin.pip:
         name: docker
         version: "6.1.0"
 
@@ -94,7 +120,7 @@
 
     - name: Change .env hostname
       ansible.builtin.shell: |
-        sed -i "s/HOSTNAME=localhost/HOSTNAME=$(hostname -I | cut -d' ' -f1)/g" /home/{{ droplet_username }}/cloud-1/.env
+        sed -i "s/HOSTNAME=localhost/HOSTNAME={{ inventory_hostname }}/g" /home/{{ droplet_username }}/cloud-1/.env
 
 
     - name: Deploy docker project
@@ -106,4 +132,6 @@
         recreate: always
         pull: missing
         build: policy
-      register: compose_output
+      retries: 2
+      delay: 5
+

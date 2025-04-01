@@ -1,7 +1,6 @@
 # #
 #
 # Load depencies for our provider
-# in our case, its DigitalOcean
 #
 # #
 
@@ -17,23 +16,39 @@ terraform {
 
 # #
 #
+# Makefiles variables (droplet_count && domain)
+# NODOMAIN mean the droplet(s) will be configured to ipv4 connections
+#
+# #
+
+variable "droplet_count" {
+  description = "Number of droplets to create"
+  type        = number
+  default     = 1
+}
+
+variable "domain_name" {
+  description = "Domain name"
+  type        = string
+  default     = "NODOMAIN"
+
+  validation {
+    condition     = var.domain_name == "NODOMAIN" || can(regex("^([a-z0-9-]+\\.)+[a-z]{2,}$", var.domain_name))
+    error_message = "Le domaine doit être valide (ex: 'example.com') ou 'NODOMAIN'."
+  }
+}
+
+
+# #
+#
 # Load our .env file
-# DO_TOKEN, and credentials for root and user
+# And apply the DO_TOKEN
 #
 # #
 
 data "local_file" "env" {
   filename = "${path.module}/../.env"
 }
-
-# #
-#
-# Configure our provider:
-# Take the DO_TOKEN from loaded .env file
-# DO_TOKEN is an API key we've created in our DigitalOcean's project
-# It give terraform access to our project allowing it to create/delete/modify droplets
-#
-# #
 
 provider "digitalocean" {
     token = regex("DO_TOKEN=(.*)", data.local_file.env.content)[0]
@@ -56,7 +71,7 @@ resource "digitalocean_ssh_key" "dg_pub_key" {
 # #
 #
 # Generate a random id
-# added our Firewall  VM's names
+# added to our Firewall and VM's names
 #
 # #
 
@@ -67,17 +82,12 @@ resource "random_id" "unique" {
 
 # #
 #
-# Create our droplet.
-# "s-1vcpu-2gb" is our droplet's config (1vCPU and 2GB of ram)
-# 
-# Then we do a "remote-exec" to init apt-get and install python3.
-# The first "local-exec" is to take our droplet's ip and store it in setup/hosts.ini file localy
-# Second one is to start our Ansible playbook ("setup/playbook.yml")
+# Create our droplet
 #
 # #
 
 resource "digitalocean_droplet" "web" {
-    count = 2
+    count = var.droplet_count
     
     image   = "ubuntu-20-04-x64"
     name    = "cloud-1-${count.index}-${random_id.unique.hex}"
@@ -110,10 +120,6 @@ resource "digitalocean_droplet" "web" {
 
     provisioner "local-exec" {
       command = "echo '${self.ipv4_address}' >> hosts.ini"
-    }
-
-    provisioner "local-exec" {
-      command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '${self.ipv4_address},' --private-key=${path.module}/id_rsa playbook.yml"
     }
 }
 
@@ -153,6 +159,84 @@ resource "digitalocean_firewall" "web" {
     protocol              = "tcp"
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "udp"
+    port_range            = "1-65535"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+}
+
+
+# #
+#
+# Configure our DNS, and apply it to our droplet(s)
+# If more than 1 droplet is created, then subdomains will be added
+# Example: s1.domain.org, s2.domain.org, ...
+#
+# #
+
+resource "digitalocean_domain" "main" {
+  count = var.domain_name != "NODOMAIN" ? 1 : 0  # Create only if domain_name var is set
+  name = var.domain_name
+}
+
+resource "digitalocean_record" "droplet_dns" {
+  count = var.domain_name != "NODOMAIN" ? var.droplet_count : 0  # Create only if domain_name var is set
+
+  domain = digitalocean_domain.main[0].name
+  type   = "A"
+  name   = var.droplet_count == 1 ? "@" : "s${count.index + 1}"
+  value  = digitalocean_droplet.web[count.index].ipv4_address
+  ttl    = 300
+}
+
+
+
+# #
+#
+# Create inventory.ini for Ansible
+#
+# #
+resource "local_file" "ansible_inventory" {
+  content = <<-EOT
+    [web]
+    %{ if var.domain_name != "NODOMAIN" ~}
+      %{ if length(digitalocean_droplet.web) == 1 ~}
+        ${var.domain_name} ansible_host=${digitalocean_droplet.web[0].ipv4_address}
+      %{ else ~}
+        %{ for i, droplet in digitalocean_droplet.web ~}
+          s${i+1}.${var.domain_name} ansible_host=${droplet.ipv4_address}
+        %{ endfor ~}
+      %{ endif ~}
+    %{ else ~}
+      %{ for i, droplet in digitalocean_droplet.web ~}
+        ${droplet.ipv4_address} ansible_host=${droplet.ipv4_address}
+      %{ endfor ~}
+    %{ endif ~}
+
+    [web:vars]
+    ansible_user=root
+    ansible_ssh_private_key_file=${path.module}/id_rsa
+    domain_name=${var.domain_name}
+  EOT
+  filename = "${path.module}/inventory.ini"
+}
+
+
+# #
+#
+# Run Ansible
+#
+# #
+resource "null_resource" "run_ansible" {
+  depends_on = [local_file.ansible_inventory]
+
+  provisioner "local-exec" {
+    command = <<EOT
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ${path.module}/inventory.ini -u root --private-key=${path.module}/id_rsa playbook.yml
+    EOT
   }
 }
 
