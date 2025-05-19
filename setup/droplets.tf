@@ -8,7 +8,7 @@ terraform {
   required_providers {
     digitalocean = {
       source = "digitalocean/digitalocean"
-      version = "~> 2.0"
+      version = "~> 2.53"
     }
   }
 }
@@ -111,10 +111,11 @@ resource "digitalocean_droplet" "web" {
         private_key = file("id_rsa")
       }
       inline = [
-          "rm -rf /var/lib/apt/lists/*",
-          "apt-get update",
-          "apt-get upgrade -y",
-          "apt-get install python3 -y"
+        "rm -rf /var/lib/apt/lists/*",
+        "export DEBIAN_FRONTEND=noninteractive",
+        "apt-get update",
+        "apt-get -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' upgrade -y",
+        "apt-get -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install python3 -y"
       ]
     }
 
